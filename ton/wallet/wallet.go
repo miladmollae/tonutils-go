@@ -43,7 +43,6 @@ const (
 	V5R1Beta   Version = 51 // W5 Beta
 	V5R1Final  Version = 52 // W5 Final
 	HighloadV3 Version = 300
-	Telegram   Version = 400
 	Lockup     Version = 200
 	Unknown    Version = 0
 
@@ -73,8 +72,6 @@ func (v Version) String() string {
 		return fmt.Sprintf("highload V2R2 verified")
 	case HighloadV3:
 		return fmt.Sprintf("highload V3")
-	case Telegram:
-		return "Telegram"
 	}
 
 	if v/100 == 2 {
@@ -96,7 +93,6 @@ var (
 		V5R1Final:    _V5R1FinalCodeHex,
 		HighloadV2R2: _HighloadV2R2CodeHex, HighloadV2Verified: _HighloadV2VerifiedCodeHex,
 		HighloadV3: _HighloadV3CodeHex,
-		Telegram:   _TelegramCodeHex,
 		Lockup:     _LockupCodeHex,
 	}
 	walletCodeBOC           = map[Version][]byte{}
@@ -205,11 +201,7 @@ func newWallet(publicKey ed25519.PublicKey, version VersionConfig, options ...Op
 	var subwallet uint32 = DefaultSubwallet
 
 	// default subwallet depends on wallet type
-	switch v := version.(type) {
-	case Version:
-		if v == Telegram {
-			subwallet = TelegramMainnetSubwallet
-		}
+	switch version.(type) {
 	case ConfigV5R1Beta:
 	case ConfigV5R1Final:
 		subwallet = 0
@@ -316,8 +308,6 @@ func getSpec(w *Wallet) (any, error) {
 			return &SpecV3{regular, SpecSeqno{seqnoFetcher: seqnoFetcher}}, nil
 		case V4R1, V4R2:
 			return &SpecV4R2{regular, SpecSeqno{seqnoFetcher: seqnoFetcher}}, nil
-		case Telegram:
-			return &SpecTelegram{regular, SpecSeqno{seqnoFetcher: seqnoFetcher}}, nil
 		case HighloadV2R2, HighloadV2Verified:
 			return &SpecHighloadV2R2{regular, SpecQuery{}}, nil
 		case HighloadV3:
@@ -416,10 +406,6 @@ func (w *Wallet) BuildExternalMessageForMany(ctx context.Context, messages []*Me
 		return nil, fmt.Errorf("failed to get account state: %w", err)
 	}
 
-	if w.ver == Telegram && acc.IsActive && acc.State.Status == tlb.AccountStatusFrozen {
-		return nil, errors.New("cannot send from a frozen Telegram wallet")
-	}
-
 	initialized := acc.IsActive && acc.State.Status == tlb.AccountStatusActive
 	return w.PrepareExternalMessageForMany(ctx, !initialized, messages)
 }
@@ -446,7 +432,7 @@ func (w *Wallet) PrepareExternalMessageForMany(ctx context.Context, withStateIni
 		}
 
 		switch v {
-		case V3R2, V3R1, V4R2, V4R1, V5R1Beta, V5R1Final, Telegram:
+		case V3R2, V3R1, V4R2, V4R1, V5R1Beta, V5R1Final:
 			msg, err = w.spec.(RegularBuilder).BuildMessage(ctx, !withStateInit, nil, messages)
 			if err != nil {
 				return nil, fmt.Errorf("build message err: %w", err)
